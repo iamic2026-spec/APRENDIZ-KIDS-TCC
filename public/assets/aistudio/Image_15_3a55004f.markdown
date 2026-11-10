@@ -1,0 +1,238 @@
+---
+name: Aprendiz Kids
+colors:
+  surface: '#faf8ff'
+  surface-dim: '#d2d9f4'
+  surface-bright: '#faf8ff'
+  surface-container-lowest: '#ffffff'
+  surface-container-low: '#f2f3ff'
+  surface-container: '#eaedff'
+  surface-container-high: '#e2e7ff'
+  surface-container-highest: '#dae2fd'
+  on-surface: '#131b2e'
+  on-surface-variant: '#3f4850'
+  inverse-surface: '#283044'
+  inverse-on-surface: '#eef0ff'
+  outline: '#707881'
+  outline-variant: '#bfc7d2'
+  surface-tint: '#006398'
+  primary: '#006194'
+  on-primary: '#ffffff'
+  primary-container: '#007bb9'
+  on-primary-container: '#fdfcff'
+  inverse-primary: '#93ccff'
+  secondary: '#855300'
+  on-secondary: '#ffffff'
+  secondary-container: '#fea619'
+  on-secondary-container: '#684000'
+  tertiary: '#006b2c'
+  on-tertiary: '#ffffff'
+  tertiary-container: '#00873a'
+  on-tertiary-container: '#f7fff2'
+  error: '#ba1a1a'
+  on-error: '#ffffff'
+  error-container: '#ffdad6'
+  on-error-container: '#93000a'
+  primary-fixed: '#cce5ff'
+  primary-fixed-dim: '#93ccff'
+  on-primary-fixed: '#001d31'
+  on-primary-fixed-variant: '#004b73'
+  secondary-fixed: '#ffddb8'
+  secondary-fixed-dim: '#ffb95f'
+  on-secondary-fixed: '#2a1700'
+  on-secondary-fixed-variant: '#653e00'
+  tertiary-fixed: '#7ffc97'
+  tertiary-fixed-dim: '#62df7d'
+  on-tertiary-fixed: '#002109'
+  on-tertiary-fixed-variant: '#005320'
+  background: '#faf8ff'
+  on-background: '#131b2e'
+  surface-variant: '#dae2fd'
+typography:
+  display:
+    fontFamily: Nunito Sans
+    fontSize: 56px
+    fontWeight: '900'
+    lineHeight: 68px
+    letterSpacing: 0.02em
+  display-mobile:
+    fontFamily: Nunito Sans
+    fontSize: 38px
+    fontWeight: '900'
+    lineHeight: 48px
+    letterSpacing: 0.02em
+  headline-xl:
+    fontFamily: Nunito Sans
+    fontSize: 44px
+    fontWeight: '800'
+    lineHeight: 54px
+    letterSpacing: 0.015em
+  headline-xl-mobile:
+    fontFamily: Nunito Sans
+    fontSize: 30px
+    fontWeight: '800'
+    lineHeight: 38px
+    letterSpacing: 0.015em
+  headline-lg:
+    fontFamily: Nunito Sans
+    fontSize: 32px
+    fontWeight: '800'
+    lineHeight: 40px
+    letterSpacing: 0.01em
+  headline-lg-mobile:
+    fontFamily: Nunito Sans
+    fontSize: 24px
+    fontWeight: '800'
+    lineHeight: 32px
+    letterSpacing: 0.01em
+  headline-md:
+    fontFamily: Nunito Sans
+    fontSize: 26px
+    fontWeight: '700'
+    lineHeight: 34px
+  headline-sm:
+    fontFamily: Nunito Sans
+    fontSize: 22px
+    fontWeight: '700'
+    lineHeight: 30px
+  body-xl:
+    fontFamily: Nunito Sans
+    fontSize: 24px
+    fontWeight: '600'
+    lineHeight: 36px
+    letterSpacing: 0.03em
+  body-lg:
+    fontFamily: Nunito Sans
+    fontSize: 20px
+    fontWeight: '600'
+    lineHeight: 30px
+    letterSpacing: 0.02em
+  body-md:
+    fontFamily: Nunito Sans
+    fontSize: 18px
+    fontWeight: '600'
+    lineHeight: 26px
+    letterSpacing: 0.015em
+  label-lg:
+    fontFamily: Quicksand
+    fontSize: 20px
+    fontWeight: '700'
+    lineHeight: 26px
+    letterSpacing: 0.04em
+  label-md:
+    fontFamily: Quicksand
+    fontSize: 16px
+    fontWeight: '700'
+    lineHeight: 22px
+    letterSpacing: 0.03em
+  label-sm:
+    fontFamily: Quicksand
+    fontSize: 14px
+    fontWeight: '700'
+    lineHeight: 18px
+    letterSpacing: 0.02em
+rounded:
+  sm: 0.5rem
+  DEFAULT: 1rem
+  md: 1.5rem
+  lg: 2rem
+  xl: 3rem
+  full: 9999px
+spacing:
+  gutter: 1.5rem
+  gutter-mobile: 1rem
+  margin: 2.5rem
+  margin-mobile: 1.25rem
+  space-xs: 0.5rem
+  space-sm: 0.75rem
+  space-md: 1.25rem
+  space-lg: 2rem
+  space-xl: 3rem
+---
+
+## Brand & Style
+
+This design system establishes a warm, playful, and developmentally supportive digital environment engineered specifically for children aged 5 to 8 learning to read and write Brazilian Portuguese. The core philosophy centers on emotional safety, joyful exploration, and multi-sensory reinforcement. Early literacy can present high cognitive load; the visual language responds with low-stress, friendly, and tactile interfaces that celebrate every small milestone.
+
+Drawing from a blend of **Tactile / Soft Skeuomorphic** and **Modern Playful Minimalism**, the aesthetic avoids flat abstraction in favor of squishy, pressable surfaces, pillowy depth, and reassuring volumetric cues. Buttons look and feel like physical arcade or toy keys, giving young learners clear affordances that invite touch and interaction.
+
+The emotional tone is encouraging, spirited, and dependable. The brand companion—Pipoca (a warm, large-eyed young owl with expressive feathers)—acts as an attentive learning buddy rather than an authoritarian instructor, accompanying phonics games, syllable mapping, and vocabulary tracing.
+
+## Colors
+
+The color palette reflects an open sky and sunny classroom setting, prioritizing joyful energy balanced with strict WCAG AAA contrast ratios for budding readers.
+
+- **Primary (Sky & Ocean Blue - `#0284C7` / `#38BDF8`):** Serves as the primary anchor for foundational actions, navigation chrome, and auditory controls. It conveys trust and clarity.
+- **Secondary (Sunny Honey Yellow - `#F59E0B` / `#FDE047`):** Applied to celebratory moments, achievements, interactive stars, and gamified point tallies. Darker amber undertones (`#D97706` / `#B45309`) are applied for hard bottom edges and 3D borders to guarantee button clarity against light surfaces.
+- **Tertiary (Playful Sprout Mint - `#16A34A` / `#4ADE80`):** Communicates success, correct phoneme matches, and positive reinforcement loops.
+- **Accent Tangerine (`#EA580C` / `#FB923C`):** Reserved for energetic nudges, mascot callouts, and critical focal items requiring child intervention.
+- **Canvas & Surface Pastel Backgrounds (`#F0F9FF`, `#FEFCE8`, `#F0FDF4`):** Soft sky and sunny off-white tints soften optical strain during sustained screen time compared to stark white (`#FFFFFF`).
+- **Text & Stroke Contrast (`#0F172A` / `#1E293B`):** Deep indigo-tinted navy replaces neutral blacks, ensuring readable letterforms with zero harshness while preserving maximum legibility.
+
+## Typography
+
+Typography prioritizes clarity, spacious character tracking, and phonetic recognition. **Nunito Sans** serves as the principal typeface across headlines and body copy due to its rounded terminals, clear distinction between letters like lowercase `l`, uppercase `I`, and digit `1`, and open counters suited for children deciphering Brazilian Portuguese syllables and diacritics (such as `ã`, `õ`, `ç`, and acute accents).
+
+### Architectural Rules
+- **Enhanced Tracking:** Letter spacing across all learning body levels is widened by `0.02em` to `0.04em` to isolate individual glyphs and prevent visual crowding during decoding.
+- **Line Heights:** Generous line heights (minimum 1.4x-1.5x) prevent diacritics and ascenders/descenders from colliding or obscuring neighboring text lines.
+- **Syllable Highlighting:** When presenting words for phonemic assembly, syllables must maintain distinct visual separation or variable weight tokens (`800` for the active syllable, `600` for resting syllables).
+
+## Layout & Spacing
+
+Young motor skills require expansive hit boundaries, intuitive spacing intervals, and uncluttered layouts. The layout adheres to a flexible 8-column layout on tablet and 12-column on desktop, collapsing to an adaptive 4-column structure on mobile devices.
+
+### Rules & Reflow
+- **Hit Zones:** Interactive items adhere to an absolute minimum touch zone of `64px x 64px`, with default active button sizes comfortably exceeding `72px` on tablets and touch displays.
+- **Peripheral Margins:** Wide outer canvas gutters (`2.5rem` on desktop, `1.25rem` on mobile) protect UI elements from unintended thumb edge triggers along tablet bezels.
+- **Vertical Stacking on Mobile:** Multi-choice phonics cards and syllable bins reflow from horizontal rows into clear, chunked vertical or 2x2 grid blocks on smaller viewports.
+
+## Elevation & Depth
+
+Visual hierarchy uses physical, pushable metaphors rather than realistic light models or multi-level dark drop shadows. Depth informs affordance: higher elements look elevated and inviting to press; once tapped, they physically compress down.
+
+### Tactile 3D Extrusion
+Instead of diffuse ambient blurs, interactive cards and buttons employ a solid, directional offset edge (extruded 3D base):
+- **Resting:** A solid, tone-on-tone 4px to 6px border along the bottom edge (e.g., `#0284C7` surfaces feature an offset bottom edge of `#0369A1`).
+- **Active / Pressed:** The component translates vertically down by `4px`, collapsing the bottom edge, accompanied by an instant sound and micro-bounce.
+- **Surface Elevation:** Non-interactive containers utilize soft, dual-layer cloud shadows with warm amber or sky-blue tints (`0 8px 24px -4px rgba(2, 132, 199, 0.12)`), preventing dirty neutral gray casting on warm pastel canvases.
+
+## Shapes
+
+The design system incorporates organic pill forms, deep curvature, and soft contours. There are no sharp right angles anywhere in the interface.
+
+- **Pill Foundations (`rounded-full`):** All interactive buttons, audio toggles, syllable tokens, and badges utilize pure pill geometry (`border-radius: 9999px` or 1rem to 3rem).
+- **Cards and Containers:** Panels and playboards implement large radius thresholds between `24px` and `32px` (`rounded-xl` to `rounded-2xl`).
+- **Borders:** Visible, friendly outlines (2px to 3px solid with soft contrast) wrap cards and learning slots, acting as unmistakable containers for drag-and-drop letter interactions.
+
+## Components
+
+### 1. Primary & Secondary Push Buttons
+- **Dimensions:** Min-height `64px` (ideal `72px`), horizontal padding `space-lg`.
+- **Styling:** Pill-shaped, extra-bold text (`Nunito Sans`, weight 800), fully saturated background with a solid 5px tone-darker bottom drop-shelf.
+- **States:** Hover expands scale smoothly by 1.02x; Active (touch) suppresses the 5px shelf down to 1px with a 4px downward translation.
+
+### 2. Audio Accessibility Button ("Ouvir")
+- **Mandatory Presence:** Accompanies every title, sentence, instruction prompt, and individual letter tile.
+- **Visuals:** High-contrast pill or circular icon button displaying a bold speaker glyph with outward sound wave brackets. Uses the primary blue tone or secondary warm yellow with an explicit label (`Ouvir`) when space permits.
+- **Feedback:** Pulses with expanding concentric rings when audio is actively playing, preventing repeated accidental taps.
+
+### 3. Syllable & Letter Tokens
+- **Dimensions:** Min-width `68px`, height `72px`.
+- **Visuals:** Cream-white card base (`#FFFFFF`) with a 3px border in Sky Blue or Sprout Green.
+- **Typography:** Display-size letters centered with pronounced baseline markers to teach ascenders and descenders.
+
+### 4. Interactive Cards & Learning Canvas
+- **Radius & Fill:** Rounded with 28px to 32px radii, filled with subtle cloud white (`#FFFFFF`) over tinted tinted backgrounds (`#F0F9FF` or `#FEFCE8`).
+- **Padding:** Minimum `space-md` (`1.25rem`) to `space-lg` (`2rem`).
+
+### 5. Checkboxes, Radios, and Choice Selectors
+- **Geometry:** Large 36px x 36px circular bubbles.
+- **Selection State:** Rather than a simple checkmark, selections "pop" into place with a cheerful bouncing star or green leaf badge, accompanied by a distinct chime.
+
+### 6. Input Fields (Letter & Tracing Slots)
+- **Geometry:** Dashed 3px rounded boundary containers indicating drop targets or drawing boxes.
+- **Focus:** Dashed line transitions to a vibrant solid 4px primary blue ring with a pale yellow backfill.
+
+### 7. Mascot Widget (Pipoca / Corujinha Sabida)
+- **Behavior:** Positioned at the prompt junction or floating anchor. Eyes track mouse or touch focus; mouth animates during audio playback; wings perform brief celebratory gestures upon puzzle completion.

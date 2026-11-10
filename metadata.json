@@ -1,0 +1,6 @@
+{
+  "name": "Aprendiz Kids",
+  "description": "Plataforma lúdica e interativa de alfabetização para crianças de 5 a 8 anos com mapa de fases, áudio pt-BR, reforço positivo e perfis infantis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
