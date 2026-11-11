@@ -74,6 +74,20 @@ export const supabaseRepo = {
     return false;
   },
 
+  async deleteChildProfile(childId: string): Promise<boolean> {
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client.from('children').delete().eq('id', childId);
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.warn('Erro ao remover do Supabase:', err);
+      }
+    }
+    return false;
+  },
+
   async recordActivity(childId: string, levelId: number, activityId: string, type: string, isCorrect: boolean): Promise<void> {
     const client = getSupabaseClient();
     if (client) {

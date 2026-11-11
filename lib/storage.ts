@@ -4,48 +4,46 @@ import { supabaseRepo } from './supabase';
 const PARENT_SESSION_KEY = 'aprendiz_kids_parent_session';
 const CHILDREN_KEY = 'aprendiz_kids_children_profiles';
 const ACTIVE_CHILD_KEY = 'aprendiz_kids_active_child_id';
-const RESET_VERSION_KEY = 'aprendiz_kids_clean_slate_v5';
 
-// Default initial state: totally clean and empty!
-const DEFAULT_CHILDREN: ChildProfile[] = [];
-
-// Automatic one-time clean slate wipe of all previous test accounts
-const ensureCleanSlateOnce = (): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    const isCleaned = localStorage.getItem(RESET_VERSION_KEY);
-    if (!isCleaned) {
-      localStorage.removeItem(PARENT_SESSION_KEY);
-      localStorage.removeItem(CHILDREN_KEY);
-      localStorage.removeItem(ACTIVE_CHILD_KEY);
-      localStorage.setItem(RESET_VERSION_KEY, 'done');
-    }
-  } catch {
-    // Ignore storage restrictions
-  }
-};
-
-// Run clean slate check immediately on module load
-ensureCleanSlateOnce();
-
-export const clearAllAppData = (): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(PARENT_SESSION_KEY);
-  localStorage.removeItem(CHILDREN_KEY);
-  localStorage.removeItem(ACTIVE_CHILD_KEY);
-};
+// Default initial profiles if first time
+const DEFAULT_CHILDREN: ChildProfile[] = [
+  {
+    id: 'child-demo',
+    name: '', // Sem nome na demonstração
+    age: 6,
+    avatar: 'child_anim', // Rosto padrão de criança de animação
+    stars: 8,
+    level: 1,
+    unlockedLevels: [1],
+    totalCorrect: 8,
+    completedActivities: ['l1-act1', 'l1-act2'],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'child-sofia',
+    name: 'Sofia',
+    age: 6,
+    avatar: '🦉', // Pipoca
+    stars: 8,
+    level: 1,
+    unlockedLevels: [1],
+    totalCorrect: 8,
+    completedActivities: ['l1-act1', 'l1-act2'],
+    createdAt: new Date().toISOString(),
+  },
+];
 
 export const setupDemoChild = (): ChildProfile => {
   const demoChild: ChildProfile = {
-    id: `child-demo-${Date.now()}`,
-    name: '', // Sem nome conforme pedido
+    id: 'child-demo',
+    name: '', // Sem nome
     age: 6,
-    avatar: 'child_anim', // Rosto padrão de criança de animação
-    stars: 0,
+    avatar: 'child_anim', // Rosto de criança de animação
+    stars: 8,
     level: 1,
     unlockedLevels: [1],
-    totalCorrect: 0,
-    completedActivities: [],
+    totalCorrect: 8,
+    completedActivities: ['l1-act1', 'l1-act2'],
     createdAt: new Date().toISOString(),
   };
 
@@ -65,6 +63,62 @@ export const getParentSession = (): ParentUser | null => {
   } catch {
     return null;
   }
+};
+
+const REGISTERED_ACCOUNTS_KEY = 'aprendiz_kids_registered_accounts';
+
+export interface LocalRegisteredAccount {
+  id: string;
+  email: string;
+  name?: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
+export const encodePassword = (password: string): string => {
+  try {
+    return btoa(encodeURIComponent(password.trim()));
+  } catch {
+    return password.trim();
+  }
+};
+
+export const getRegisteredAccounts = (): LocalRegisteredAccount[] => {
+  if (typeof window === 'undefined') return [];
+  const data = localStorage.getItem(REGISTERED_ACCOUNTS_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+};
+
+export const saveRegisteredAccount = (account: LocalRegisteredAccount): void => {
+  if (typeof window === 'undefined') return;
+  const accounts = getRegisteredAccounts().filter(
+    (a) => a.email.toLowerCase() !== account.email.toLowerCase()
+  );
+  accounts.push(account);
+  localStorage.setItem(REGISTERED_ACCOUNTS_KEY, JSON.stringify(accounts));
+};
+
+export const findRegisteredAccount = (email: string): LocalRegisteredAccount | undefined => {
+  const accounts = getRegisteredAccounts();
+  const clean = email.trim().toLowerCase();
+  return accounts.find((a) => a.email.toLowerCase() === clean);
+};
+
+export const verifyRegisteredAccount = (
+  email: string,
+  password: string
+): LocalRegisteredAccount | null => {
+  const account = findRegisteredAccount(email);
+  if (!account) return null;
+  if (account.passwordHash === encodePassword(password)) {
+    return account;
+  }
+  return null;
 };
 
 export const setParentSession = (user: ParentUser | null): void => {

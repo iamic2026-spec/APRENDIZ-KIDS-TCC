@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { ParentUser, ChildProfile, GameLevel } from '../lib/types';
 import {
   getParentSession,
@@ -8,6 +8,7 @@ import {
   getActiveChild,
   getChildrenProfiles,
   setActiveChildId,
+  subscribeStorage,
 } from '../lib/storage';
 import { AuthScreen } from '../components/AuthScreen';
 import { ProfileSelectScreen } from '../components/ProfileSelectScreen';
@@ -21,9 +22,21 @@ import { useHydrated } from '../lib/useHydrated';
 
 export default function HomePage() {
   const isHydrated = useHydrated();
-  const [parent, setParent] = useState<ParentUser | null>(() => getParentSession());
-  const [activeChild, setActiveChild] = useState<ChildProfile | null>(() => getActiveChild());
-  const [isSelectingProfile, setIsSelectingProfile] = useState(() => !getActiveChild());
+
+  // Reactive external store subscription for persistent parent session & active child
+  const parent = useSyncExternalStore(
+    subscribeStorage,
+    () => getParentSession(),
+    () => null
+  );
+
+  const activeChild = useSyncExternalStore(
+    subscribeStorage,
+    () => getActiveChild(),
+    () => null
+  );
+
+  const [isSelectingProfile, setIsSelectingProfile] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<GameLevel | null>(null);
 
   // Modals
@@ -49,33 +62,34 @@ export default function HomePage() {
   if (!parent) {
     return (
       <AuthScreen
-        onLoginSuccess={(user) => {
-          setParent(user);
+        onLoginSuccess={() => {
           const child = getActiveChild();
-          if (child) {
-            setActiveChild(child);
-            setIsSelectingProfile(false);
-          } else {
-            setIsSelectingProfile(true);
-          }
+          setIsSelectingProfile(!child);
         }}
       />
     );
   }
 
-  // 2. Requirement: ESCOLHER OU CRIAR PERFIL DA CRIANÇA
+  // 2. Requirement: ESCOLHER, CRIAR, EDITAR OU EXCLUIR PERFIL DA CRIANÇA
   if (isSelectingProfile || !activeChild) {
     return (
       <ProfileSelectScreen
-        onSelectChild={(child) => {
-          setActiveChild(child);
+        activeChildId={activeChild?.id}
+        onSelectChild={() => {
           setIsSelectingProfile(false);
+        }}
+        onChildUpdated={() => {
+          // Handled reactively by subscribeStorage
+        }}
+        onChildDeleted={(deletedId) => {
+          if (activeChild?.id === deletedId) {
+            const remaining = getChildrenProfiles();
+            setActiveChildId(remaining[0]?.id || null);
+          }
         }}
         onLogout={() => {
           sounds.playPop();
           setParentSession(null);
-          setParent(null);
-          setActiveChild(null);
           setActiveChildId(null);
           setIsSelectingProfile(false);
         }}
@@ -83,16 +97,9 @@ export default function HomePage() {
     );
   }
 
-  // Refresh active child data after updates
-  const handleChildUpdated = (updated: ChildProfile) => {
-    setActiveChild(updated);
-  };
-
   const handleLogout = () => {
     sounds.playPop();
     setParentSession(null);
-    setParent(null);
-    setActiveChild(null);
     setActiveChildId(null);
     setCurrentLevel(null);
     setIsSelectingProfile(false);
@@ -129,7 +136,7 @@ export default function HomePage() {
               sounds.playPop();
               setCurrentLevel(null);
             }}
-            onChildUpdated={handleChildUpdated}
+            onChildUpdated={() => {}}
           />
         ) : (
           <MapPhaseScreen
@@ -140,6 +147,10 @@ export default function HomePage() {
             onOpenTrophies={() => {
               sounds.playPop();
               setTrophiesOpen(true);
+            }}
+            onEditProfile={() => {
+              sounds.playPop();
+              setIsSelectingProfile(true);
             }}
           />
         )}
@@ -157,10 +168,7 @@ export default function HomePage() {
         isOpen={parentAreaOpen}
         parent={parent}
         onClose={() => setParentAreaOpen(false)}
-        onRefreshChildren={() => {
-          const child = getActiveChild();
-          if (child) setActiveChild(child);
-        }}
+        onRefreshChildren={() => {}}
       />
     </div>
   );

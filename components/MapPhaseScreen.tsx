@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Lock, Play, Star, Sparkles, CheckCircle2, ChevronRight, Award, Trophy } from 'lucide-react';
+import { Lock, Play, Star, Sparkles, CheckCircle2, ChevronRight, Award, Trophy, Pencil } from 'lucide-react';
 import { ChildProfile, GameLevel } from '../lib/types';
 import { GAME_LEVELS } from '../lib/gameData';
 import { sounds } from '../lib/soundEffects';
@@ -15,12 +15,14 @@ interface MapPhaseScreenProps {
   child: ChildProfile;
   onSelectLevel: (level: GameLevel) => void;
   onOpenTrophies: () => void;
+  onEditProfile?: () => void;
 }
 
 export const MapPhaseScreen: React.FC<MapPhaseScreenProps> = ({
   child,
   onSelectLevel,
   onOpenTrophies,
+  onEditProfile,
 }) => {
   // Calculate progress to next rank
   const correctInCurrentCycle = child.totalCorrect % 10;
@@ -106,9 +108,22 @@ export const MapPhaseScreen: React.FC<MapPhaseScreenProps> = ({
               )}
             </div>
             <div>
-              <span className="text-xs font-black uppercase text-sky-600 tracking-wider">
-                Mapa de Aventuras
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase text-sky-600 tracking-wider">
+                  Mapa de Aventuras
+                </span>
+                {onEditProfile && (
+                  <button
+                    type="button"
+                    onClick={onEditProfile}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-100 hover:bg-sky-200 text-sky-800 text-[11px] font-black border border-sky-300 btn-tactile cursor-pointer"
+                    title="Editar nome, foto ou avatar da criança"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Editar Perfil</span>
+                  </button>
+                )}
+              </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
                 {child.name ? `Olá, ${child.name}!` : 'Olá!'}
               </h2>

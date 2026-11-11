@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Shield, Database, Check, Copy, X, Key, ExternalLink, RefreshCw, Unlock, Users, Star, Trash2 } from 'lucide-react';
+import { Shield, Database, Check, Copy, X, Key, ExternalLink, RefreshCw, Unlock, Users, Star } from 'lucide-react';
 import { ChildProfile, ParentUser } from '../lib/types';
 import { supabaseRepo, isSupabaseConfigured } from '../lib/supabase';
-import { getChildrenProfiles, saveChildrenProfiles, clearAllAppData } from '../lib/storage';
+import { getChildrenProfiles, saveChildrenProfiles } from '../lib/storage';
 import { sounds } from '../lib/soundEffects';
-import { ChildAvatarRenderer } from './ChildAvatarRenderer';
+import { AnimatedChildAvatar } from './AnimatedChildAvatar';
 
 interface ParentDashboardModalProps {
   isOpen: boolean;
@@ -71,15 +71,6 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
       saveChildrenProfiles(updated);
       onRefreshChildren();
       alert('Todas as fases foram desbloqueadas com sucesso!');
-    }
-  };
-
-  const handleResetAllData = () => {
-    if (confirm('Tem certeza de que deseja apagar e zerar todos os perfis, cadastros e progresso? O app iniciará limpo do zero.')) {
-      clearAllAppData();
-      sounds.playPop();
-      alert('Todos os dados locais foram apagados com sucesso! A página será reiniciada.');
-      window.location.reload();
     }
   };
 
@@ -303,79 +294,60 @@ CREATE TRIGGER on_auth_user_created
             {/* Tab: Children Progress */}
             {activeTab === 'progress' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center justify-between">
                   <h4 className="text-sm font-black text-slate-700 uppercase tracking-wide">
                     Relatório dos Aprendizes
                   </h4>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleUnlockAllLevels}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-xs border border-emerald-300 btn-tactile cursor-pointer"
-                      title="Desbloquear todas as fases para teste"
-                    >
-                      <Unlock className="w-3.5 h-3.5" />
-                      <span>Desbloquear Fases</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleResetAllData}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-800 font-extrabold text-xs border border-rose-300 btn-tactile cursor-pointer"
-                      title="Zerar todos os cadastros e dados"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Zerar Dados</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUnlockAllLevels}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-xs border border-emerald-300 btn-tactile"
+                    title="Desbloquear todas as fases para teste"
+                  >
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Desbloquear Todas as Fases</span>
+                  </button>
                 </div>
 
-                {children.length === 0 ? (
-                  <div className="p-6 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-center">
-                    <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm font-black text-slate-700">Nenhum perfil de criança cadastrado</p>
-                    <p className="text-xs text-slate-500 font-bold mt-1">
-                      Cadastre um novo perfil com foto ou avatar animado na tela de perfis!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {children.map((child) => (
-                      <div
-                        key={child.id}
-                        className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/70 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-sky-200 flex items-center justify-center border-2 border-white shadow-inner shrink-0">
-                            {child.photoUrl ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src={child.photoUrl} alt={child.name || 'Aprendiz'} className="w-full h-full object-cover" />
-                            ) : (
-                              <ChildAvatarRenderer avatarId={child.avatar} size="xs" />
-                            )}
-                          </div>
-                          <div>
-                            <h5 className="text-base font-black text-slate-800">
-                              {child.name || 'Pequeno Aprendiz (Demonstração)'}
-                            </h5>
-                            <span className="text-xs font-bold text-slate-500">
-                              {child.age} anos • Fase {child.level} de 5
-                            </span>
-                          </div>
+                <div className="space-y-3">
+                  {children.map((child) => (
+                    <div
+                      key={child.id}
+                      className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/70 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-sky-200 flex items-center justify-center text-2xl border-2 border-white shadow-inner">
+                          {child.photoUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={child.photoUrl} alt={child.name || 'Aprendiz'} className="w-full h-full object-cover" />
+                          ) : child.avatar === 'child_anim' ? (
+                            <AnimatedChildAvatar size="sm" />
+                          ) : (
+                            child.avatar
+                          )}
                         </div>
-
-                        <div className="text-right">
-                          <div className="flex items-center gap-1 text-amber-700 font-black text-sm">
-                            <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
-                            <span>{child.stars} estrelas</span>
-                          </div>
+                        <div>
+                          <h5 className="text-base font-black text-slate-800">
+                            {child.name || 'Pequeno Aprendiz (Demonstração)'}
+                          </h5>
                           <span className="text-xs font-bold text-slate-500">
-                            {child.totalCorrect} acertos totais
+                            {child.age} anos • Fase {child.level} de 5
                           </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-amber-700 font-black text-sm">
+                          <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                          <span>{child.stars} estrelas</span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-500">
+                          {child.totalCorrect} acertos totais
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -386,8 +358,11 @@ CREATE TRIGGER on_auth_user_created
                   <p className="font-bold mb-1">
                     🚀 Conecte sua conta do Supabase para sincronização em nuvem!
                   </p>
-                  <p>
+                  <p className="mb-2">
                     O Aprendiz Kids funciona perfeitamente sem nenhuma configuração (armazenamento local seguro). Para sincronizar entre múltiplos dispositivos com PostgreSQL e autenticação em nuvem, informe seus dados do Supabase abaixo:
+                  </p>
+                  <p className="text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-xs font-bold">
+                    💡 <strong>Dica para Login Imediato:</strong> No painel do Supabase, acesse <em>Authentication &gt; Providers &gt; Email</em> e desmarque <strong>Confirm email</strong>. Isso permite login imediato sem exigir verificação de link por e-mail.
                   </p>
                 </div>
 

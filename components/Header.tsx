@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[10px] sm:text-xs uppercase tracking-wider font-extrabold text-sky-600 leading-tight">
               Aprendiz
             </span>
-            <span className="text-base sm:text-xl font-black text-slate-800 leading-tight truncate max-w-[110px] xs:max-w-[160px] sm:max-w-[220px]">
+            <span className="text-base sm:text-xl font-black text-slate-800 leading-tight truncate max-w-[110px] xs:max-w-[160px] sm:max-w-[220px] md:max-w-[280px] lg:max-w-[340px]">
               {child.name || 'Pequeno Aprendiz'}
             </span>
           </div>

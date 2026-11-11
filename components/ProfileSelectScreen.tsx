@@ -1,33 +1,63 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Plus, User, Star, Camera, Check, ArrowRight, Trash2, Sparkles, Image as ImageIcon, Smile, RefreshCw } from 'lucide-react';
+import {
+  Plus,
+  User,
+  Star,
+  Camera,
+  Check,
+  ArrowRight,
+  Trash2,
+  Sparkles,
+  Smile,
+  Pencil,
+  X,
+  AlertTriangle,
+  Play,
+} from 'lucide-react';
 import { ChildProfile } from '../lib/types';
-import { getChildrenProfiles, createChildProfile, deleteChildProfile, setActiveChildId } from '../lib/storage';
+import {
+  getChildrenProfiles,
+  createChildProfile,
+  updateChildProfile,
+  deleteChildProfile,
+  setActiveChildId,
+} from '../lib/storage';
 import { sounds } from '../lib/soundEffects';
 import { speech } from '../lib/speechService';
 import { MascotPipoca } from './MascotPipoca';
 import { AudioButton } from './AudioButton';
 import { ChildAvatarRenderer, ANIMATED_AVATAR_LIST } from './ChildAvatarRenderer';
+import { resizeImageToAvatar } from '../lib/imageUtils';
 
 interface ProfileSelectScreenProps {
+  activeChildId?: string;
   onSelectChild: (child: ChildProfile) => void;
+  onChildUpdated?: (child: ChildProfile) => void;
+  onChildDeleted?: (deletedId: string) => void;
   onLogout: () => void;
 }
 
 export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
+  activeChildId,
   onSelectChild,
+  onChildUpdated,
+  onChildDeleted,
   onLogout,
 }) => {
   const [children, setChildren] = useState<ChildProfile[]>(() => getChildrenProfiles());
   const [isCreating, setIsCreating] = useState(() => children.length === 0);
-  
-  // New profile form state
+  const [editingChild, setEditingChild] = useState<ChildProfile | null>(null);
+
+  // Form states
   const [name, setName] = useState('');
   const [age, setAge] = useState<number>(6);
   const [avatarMode, setAvatarMode] = useState<'animated' | 'upload'>('animated');
   const [selectedAvatar, setSelectedAvatar] = useState('child_anim');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSelect = (child: ChildProfile) => {
@@ -41,57 +71,125 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
     onSelectChild(child);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenCreate = () => {
+    sounds.playPop();
+    setEditingChild(null);
+    setName('');
+    setAge(6);
+    setAvatarMode('animated');
+    setSelectedAvatar('child_anim');
+    setPhotoPreview(null);
+    setIsCreating(true);
+  };
+
+  const handleOpenEdit = (e: React.MouseEvent, child: ChildProfile) => {
+    e.stopPropagation();
+    sounds.playPop();
+    setEditingChild(child);
+    setName(child.name);
+    setAge(child.age);
+    if (child.photoUrl) {
+      setAvatarMode('upload');
+      setPhotoPreview(child.photoUrl);
+      setSelectedAvatar(child.avatar || 'child_anim');
+    } else {
+      setAvatarMode('animated');
+      setSelectedAvatar(child.avatar || 'child_anim');
+      setPhotoPreview(null);
+    }
+    setIsCreating(false);
+  };
+
+  const handleCancelForm = () => {
+    sounds.playPop();
+    setIsCreating(false);
+    setEditingChild(null);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert('Por favor, selecione uma foto menor que 3MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result as string);
+    try {
+      setIsUploadingPhoto(true);
+      // Compact resize using canvas to prevent localStorage quota issues
+      const compressedDataUrl = await resizeImageToAvatar(file, 240, 0.85);
+      setPhotoPreview(compressedDataUrl);
       setAvatarMode('upload');
       sounds.playSuccess();
-    };
-    reader.readAsDataURL(file);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao carregar foto.';
+      alert(msg);
+      sounds.playTryAgain();
+    } finally {
+      setIsUploadingPhoto(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      alert('Por favor, informe o nome da criança.');
+      return;
+    }
 
     sounds.playSuccess();
     const finalPhoto = avatarMode === 'upload' ? (photoPreview || undefined) : undefined;
     const finalAvatar = selectedAvatar || 'child_anim';
 
-    const newChild = createChildProfile(
-      name,
-      age,
-      finalAvatar,
-      finalPhoto
-    );
+    if (editingChild) {
+      // Salvar alterações mantendo estrelas e progresso
+      const updated = updateChildProfile(editingChild.id, {
+        name,
+        age,
+        avatar: finalAvatar,
+        photoUrl: finalPhoto,
+      });
 
-    setChildren(getChildrenProfiles());
-    setIsCreating(false);
-    speech.speak(`Perfil de ${newChild.name} cadastrado com sucesso! Vamos começar!`);
-    onSelectChild(newChild);
-  };
+      if (updated) {
+        const remaining = getChildrenProfiles();
+        setChildren(remaining);
+        setEditingChild(null);
+        speech.speak(`Perfil de ${updated.name} atualizado com sucesso!`);
+        onChildUpdated?.(updated);
+        onSelectChild(updated);
+      }
+    } else {
+      // Criar novo perfil
+      const newChild = createChildProfile(
+        name,
+        age,
+        finalAvatar,
+        finalPhoto
+      );
 
-  const handleDelete = (e: React.MouseEvent, id: string, childName: string) => {
-    e.stopPropagation();
-    if (confirm(`Deseja remover o perfil de ${childName || 'Aprendiz'}?`)) {
-      sounds.playPop();
-      deleteChildProfile(id);
       const remaining = getChildrenProfiles();
       setChildren(remaining);
-      if (remaining.length === 0) {
-        setIsCreating(true);
-      }
+      setIsCreating(false);
+      speech.speak(`Perfil de ${newChild.name} cadastrado com sucesso! Vamos começar!`);
+      onSelectChild(newChild);
     }
   };
+
+  const handleDeleteProfile = (id: string, childName: string) => {
+    sounds.playPop();
+    const remaining = deleteChildProfile(id);
+    setChildren(remaining);
+    setConfirmDeleteId(null);
+    if (editingChild?.id === id) {
+      setEditingChild(null);
+    }
+    onChildDeleted?.(id);
+
+    if (remaining.length === 0) {
+      handleOpenCreate();
+    } else {
+      speech.speak(`Perfil de ${childName || 'Aprendiz'} excluído com sucesso.`);
+    }
+  };
+
+  const isFormActive = isCreating || editingChild !== null;
 
   return (
     <div className="min-h-screen bg-kid-animated-gradient p-4 sm:p-8 flex flex-col justify-between">
@@ -106,7 +204,7 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
           <button
             type="button"
             onClick={onLogout}
-            className="px-4 py-2 text-sm font-extrabold text-slate-600 hover:text-slate-900 bg-white/90 rounded-full border border-slate-200 btn-tactile shadow-sm"
+            className="px-4 py-2 text-sm font-extrabold text-slate-600 hover:text-slate-900 bg-white/90 rounded-full border border-slate-200 btn-tactile shadow-sm cursor-pointer"
           >
             Trocar Responsável
           </button>
@@ -115,32 +213,38 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
         {/* Mascot & Title */}
         <div className="text-center my-4">
           <div className="flex justify-center mb-3">
-            <MascotPipoca size="md" mood={isCreating ? 'encouraging' : 'neutral'} />
+            <MascotPipoca size="md" mood={isFormActive ? 'encouraging' : 'neutral'} />
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-[#0F172A] tracking-tight">
-            {isCreating
+            {editingChild
+              ? `Editar Perfil de ${editingChild.name || 'Aprendiz'}`
+              : isCreating
               ? 'Cadastrar Perfil da Criança'
               : children.length === 0
               ? 'Bem-vindo ao Aprendiz Kids!'
               : 'Quem vai aprender hoje?'}
           </h1>
           <p className="text-slate-700 font-bold text-base sm:text-lg mt-1 max-w-xl mx-auto">
-            {isCreating
+            {editingChild
+              ? 'Altere o nome, idade ou troque a foto e avatar da criança.'
+              : isCreating
               ? 'Informe o nome, idade e escolha entre uma foto do seu aparelho ou um avatar animado!'
               : children.length === 0
               ? 'Nenhum perfil cadastrado ainda. Crie o perfil do seu pequeno para começar!'
-              : 'Selecione o perfil para abrir o mapa de fases e começar a brincadeira!'}
+              : 'Selecione o perfil para jogar ou toque em Editar para alterar dados!'}
           </p>
 
           <div className="mt-3 flex justify-center">
             <AudioButton
               textToSpeak={
-                isCreating
+                editingChild
+                  ? `Você está editando o perfil de ${editingChild.name || 'Aprendiz'}. Altere o nome, idade, foto ou avatar, ou exclua o perfil se desejar.`
+                  : isCreating
                   ? 'Digite o nome da criança, escolha a idade e decida entre enviar uma foto real ou escolher um avatar animado bem divertido!'
                   : children.length === 0
                   ? 'Cadastre o perfil da criança para abrir o mundo das letrinhas e dos números!'
-                  : 'Toque no perfil com a foto ou avatar da criança para começar!'
+                  : 'Toque no perfil com a foto ou avatar da criança para começar! Você também pode editar ou excluir perfis.'
               }
               label="Ouvir Instruções"
               variant="secondary"
@@ -148,70 +252,104 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
           </div>
         </div>
 
-        {/* Content Area */}
-        {!isCreating && children.length > 0 ? (
-          /* Profile Selector Grid */
+        {/* Mode 1: Profile Selector Grid (when not creating or editing) */}
+        {!isFormActive && children.length > 0 ? (
           <div className="my-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-w-3xl mx-auto">
-              {children.map((child) => (
-                <div
-                  key={child.id}
-                  onClick={() => handleSelect(child)}
-                  className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 border-3 border-sky-200 hover:border-sky-500 shadow-md hover:shadow-2xl transition-all cursor-pointer relative group btn-tactile text-center"
-                >
-                  {/* Delete button (for parents) */}
-                  <button
-                    type="button"
-                    onClick={(e) => handleDelete(e, child.id, child.name)}
-                    className="absolute top-3 right-3 text-slate-300 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 transition-colors"
-                    title="Excluir perfil"
+              {children.map((child) => {
+                const isActive = child.id === activeChildId;
+                return (
+                  <div
+                    key={child.id}
+                    className={`bg-white/95 backdrop-blur-sm rounded-3xl p-5 sm:p-6 border-3 transition-all relative group text-center shadow-md hover:shadow-xl ${
+                      isActive
+                        ? 'border-sky-500 ring-4 ring-sky-200'
+                        : 'border-sky-200 hover:border-sky-400'
+                    }`}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    {/* Top Action Bar: Edit & Delete buttons */}
+                    <div className="flex items-center justify-between mb-2">
+                      {isActive ? (
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full border border-sky-300">
+                          Perfil Atual
+                        </span>
+                      ) : (
+                        <span />
+                      )}
 
-                  {/* Photo or Animated Avatar */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden bg-gradient-to-tr from-sky-100 to-amber-100 border-4 border-sky-300 shadow-inner flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                    {child.photoUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={child.photoUrl}
-                        alt={child.name || 'Aprendiz'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <ChildAvatarRenderer avatarId={child.avatar} size="lg" />
-                    )}
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEdit(e, child)}
+                          className="p-1.5 rounded-full bg-slate-100 hover:bg-sky-100 text-slate-600 hover:text-sky-700 transition-colors btn-tactile cursor-pointer"
+                          title={`Editar perfil de ${child.name}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(child.id);
+                          }}
+                          className="p-1.5 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition-colors btn-tactile cursor-pointer"
+                          title={`Excluir perfil de ${child.name}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Photo or Animated Avatar */}
+                    <div
+                      onClick={() => handleSelect(child)}
+                      className="cursor-pointer"
+                    >
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden bg-gradient-to-tr from-sky-100 to-amber-100 border-4 border-sky-300 shadow-inner flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                        {child.photoUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={child.photoUrl}
+                            alt={child.name || 'Aprendiz'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ChildAvatarRenderer avatarId={child.avatar} size="lg" />
+                        )}
+                      </div>
+
+                      {/* Nome da Criança em Destaque */}
+                      <h3 className="text-2xl font-black text-slate-800 tracking-tight leading-snug">
+                        {child.name || 'Pequeno Aprendiz'}
+                      </h3>
+                      <p className="text-sm font-extrabold text-sky-600 mb-2">
+                        {child.age} anos • Fase {child.level} de 5
+                      </p>
+
+                      {/* Stars Pill */}
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-50 border-2 border-amber-300 rounded-full text-amber-800 font-black text-xs sm:text-sm shadow-sm mb-4">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-500 animate-wiggle" />
+                        <span>{child.stars} estrelas</span>
+                      </div>
+                    </div>
+
+                    {/* Big Direct "Jogar" Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(child)}
+                      className="w-full min-h-[50px] rounded-full bg-[#0284C7] hover:bg-[#0369A1] text-white font-black text-base border-b-4 border-[#0369A1] active:border-b-0 btn-tactile shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>Jogar Agora</span>
+                    </button>
                   </div>
-
-                  {/* Nome da Criança em Destaque */}
-                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-                    {child.name || 'Pequeno Aprendiz'}
-                  </h3>
-                  <p className="text-sm font-extrabold text-sky-600 mb-3">
-                    {child.age} anos • Fase {child.level}
-                  </p>
-
-                  {/* Stars Pill */}
-                  <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-50 border-2 border-amber-300 rounded-full text-amber-800 font-black text-sm shadow-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-500 animate-wiggle" />
-                    <span>{child.stars} estrelas</span>
-                  </div>
-
-                  {/* Action prompt */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-sky-600 font-extrabold text-sm group-hover:text-sky-700">
-                    <span>Entrar na aventura</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Add New Profile Card */}
               <div
-                onClick={() => {
-                  sounds.playPop();
-                  setIsCreating(true);
-                }}
-                className="bg-white/80 hover:bg-white border-3 border-dashed border-sky-300 hover:border-sky-500 rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer min-h-[240px] transition-all btn-tactile shadow-sm hover:shadow-lg"
+                onClick={handleOpenCreate}
+                className="bg-white/80 hover:bg-white border-3 border-dashed border-sky-300 hover:border-sky-500 rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer min-h-[260px] transition-all btn-tactile shadow-sm hover:shadow-lg"
               >
                 <div className="w-16 h-16 rounded-full bg-sky-100 border-2 border-sky-300 text-sky-600 flex items-center justify-center mb-3 shadow-inner">
                   <Plus className="w-8 h-8" />
@@ -224,10 +362,33 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
             </div>
           </div>
         ) : (
-          /* Enhanced Create Profile Form (Upload vs Animated Avatars) */
+          /* Mode 2: Enhanced Profile Form (Create OR Edit) */
           <div className="max-w-xl mx-auto bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-sky-200 my-4">
-            <form onSubmit={handleCreateSubmit} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
               
+              {/* Top Form Header with Close/Back */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">
+                    {editingChild ? '✏️' : '🌟'}
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-800">
+                    {editingChild ? 'Alterar Dados do Perfil' : 'Novo Perfil Infantil'}
+                  </h3>
+                </div>
+
+                {children.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleCancelForm}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100 rounded-full cursor-pointer"
+                    title="Cancelar"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
               {/* STEP 1: Two Clear Options for Child Picture/Avatar */}
               <div>
                 <span className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-2.5 text-center">
@@ -264,7 +425,7 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                     }`}
                   >
                     <Camera className="w-5 h-5" />
-                    <span>Upload de Foto</span>
+                    <span>Foto do Aparelho</span>
                   </button>
                 </div>
 
@@ -314,19 +475,28 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                     <div className="flex flex-col items-center gap-2 mt-1">
                       <button
                         type="button"
+                        disabled={isUploadingPhoto}
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 bg-white border-2 border-sky-300 hover:border-sky-500 text-sky-700 rounded-full font-black text-xs sm:text-sm btn-tactile shadow-sm"
+                        className="px-4 py-2 bg-white border-2 border-sky-300 hover:border-sky-500 text-sky-700 rounded-full font-black text-xs sm:text-sm btn-tactile shadow-sm cursor-pointer"
                       >
-                        {photoPreview ? 'Trocar Foto Escolhida' : 'Escolher Foto do Aparelho (JPG/PNG)'}
+                        {isUploadingPhoto
+                          ? 'Processando foto...'
+                          : photoPreview
+                          ? 'Trocar Foto'
+                          : 'Selecionar Foto (Galeria ou Câmera)'}
                       </button>
 
                       {photoPreview && (
                         <button
                           type="button"
-                          onClick={() => setPhotoPreview(null)}
-                          className="text-xs text-rose-500 font-bold hover:underline"
+                          onClick={() => {
+                            sounds.playPop();
+                            setPhotoPreview(null);
+                            setAvatarMode('animated');
+                          }}
+                          className="text-xs text-rose-500 font-bold hover:underline cursor-pointer"
                         >
-                          Remover foto e voltar ao avatar padrão
+                          Remover foto e usar avatar animado
                         </button>
                       )}
                     </div>
@@ -434,28 +604,82 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-2">
-                {children.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3">
+                  {children.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleCancelForm}
+                      className="flex-1 min-h-[58px] rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-base border-b-3 border-slate-300 btn-tactile cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="flex-2 min-h-[58px] rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-lg sm:text-xl border-b-5 border-[#15803D] active:border-b-0 btn-tactile shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Check className="w-6 h-6" />
+                    <span>{editingChild ? 'Salvar Alterações' : 'Cadastrar e Começar!'}</span>
+                  </button>
+                </div>
+
+                {/* Explicit Delete Option inside Edit Mode */}
+                {editingChild && (
                   <button
                     type="button"
-                    onClick={() => setIsCreating(false)}
-                    className="flex-1 min-h-[56px] rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-base border-b-3 border-slate-300 btn-tactile cursor-pointer"
+                    onClick={() => setConfirmDeleteId(editingChild.id)}
+                    className="w-full py-2.5 rounded-full text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-black text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
-                    Voltar
+                    <Trash2 className="w-4 h-4" />
+                    <span>Excluir este perfil permanentemente</span>
                   </button>
                 )}
-                <button
-                  type="submit"
-                  className="flex-2 min-h-[62px] rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-xl border-b-5 border-[#15803D] active:border-b-0 btn-tactile shadow-xl flex items-center justify-center gap-2.5 cursor-pointer"
-                >
-                  <Check className="w-6 h-6" />
-                  <span>Cadastrar e Começar!</span>
-                </button>
               </div>
             </form>
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border-4 border-rose-200 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <h3 className="text-xl font-black text-slate-800">
+              Excluir este perfil?
+            </h3>
+
+            <p className="text-sm font-bold text-slate-600">
+              O perfil e todo o progresso de estrelas acumuladas serão removidos. Esta ação não pode ser desfeita.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-sm border-b-3 border-slate-300 btn-tactile cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = children.find((c) => c.id === confirmDeleteId);
+                  handleDeleteProfile(confirmDeleteId, target?.name || '');
+                }}
+                className="flex-1 py-3 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-black text-sm border-b-4 border-rose-800 active:border-b-0 btn-tactile shadow-md cursor-pointer"
+              >
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="text-center text-xs text-slate-500 font-bold py-2">
         Aprendiz Kids • Alfabetização Lúdica e Divertida

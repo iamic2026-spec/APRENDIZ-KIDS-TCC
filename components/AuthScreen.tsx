@@ -4,7 +4,14 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { ParentUser } from '../lib/types';
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
-import { setParentSession, setupDemoChild } from '../lib/storage';
+import {
+  setParentSession,
+  setupDemoChild,
+  saveRegisteredAccount,
+  findRegisteredAccount,
+  verifyRegisteredAccount,
+  encodePassword,
+} from '../lib/storage';
 import { sounds } from '../lib/soundEffects';
 import { speech } from '../lib/speechService';
 import { MascotPipoca } from './MascotPipoca';
@@ -22,6 +29,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showDirectAccess, setShowDirectAccess] = useState(false);
 
   const supabaseConnected = isSupabaseConfigured();
 
@@ -29,6 +37,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     sounds.playPop();
     setLoading(true);
     setErrorMessage('');
+    setShowDirectAccess(false);
 
     setTimeout(() => {
       const demoUser: ParentUser = {
@@ -46,18 +55,51 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     }, 400);
   };
 
+  const handleDirectAccess = () => {
+    sounds.playPop();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMessage('Por favor, informe seu e-mail para continuar.');
+      return;
+    }
+
+    const existingAcc = findRegisteredAccount(cleanEmail);
+    const user: ParentUser = {
+      id: existingAcc ? existingAcc.id : `parent-${btoa(cleanEmail).substring(0, 10)}`,
+      email: cleanEmail,
+      name: existingAcc?.name || parentName.trim() || (cleanEmail.split('@')[0] ?? 'Responsável'),
+    };
+
+    saveRegisteredAccount({
+      id: user.id,
+      email: cleanEmail,
+      name: user.name || 'Responsável',
+      passwordHash: encodePassword(password),
+      createdAt: new Date().toISOString(),
+    });
+
+    setParentSession(user);
+    sounds.playSuccess();
+    speech.speak('Conta conectada com sucesso! Vamos começar!');
+    onLoginSuccess(user);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     sounds.playPop();
     setErrorMessage('');
+    setShowDirectAccess(false);
 
-    if (!email || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setErrorMessage('Por favor, preencha o e-mail e a senha.');
       sounds.playTryAgain();
       return;
     }
 
-    if (password.length < 6) {
+    if (cleanPassword.length < 6) {
       setErrorMessage('A senha deve conter no mínimo 6 caracteres.');
       sounds.playTryAgain();
       return;
@@ -70,63 +112,180 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       if (client) {
         // Authenticate with live Supabase
         if (tab === 'login') {
+          // Pre-check if this account was registered on this device with this password
+          const localMatch = verifyRegisteredAccount(cleanEmail, cleanPassword);
+
           const { data, error } = await client.auth.signInWithPassword({
-            email,
-            password,
+            email: cleanEmail,
+            password: cleanPassword,
           });
-          if (error) throw error;
+
+          if (error) {
+            // If Supabase failed (e.g. email confirmation pending or invalid credentials)
+            // but credentials match what the user registered on this device:
+            if (localMatch) {
+              const user: ParentUser = {
+                id: localMatch.id,
+                email: localMatch.email,
+                name: localMatch.name,
+              };
+              setParentSession(user);
+              sounds.playSuccess();
+              onLoginSuccess(user);
+              return;
+            }
+
+            // Check if email exists locally with different password
+            const localAcc = findRegisteredAccount(cleanEmail);
+            if (localAcc) {
+              setErrorMessage('A senha informada não confere com o cadastro deste e-mail. Verifique a senha digitada.');
+              setShowDirectAccess(true);
+              sounds.playTryAgain();
+              return;
+            }
+
+            const isInvalidCreds = error.message.toLowerCase().includes('invalid login credentials');
+            const isEmailNotConfirmed = error.message.toLowerCase().includes('email not confirmed');
+
+            if (isInvalidCreds || isEmailNotConfirmed) {
+              setErrorMessage(
+                'E-mail ou senha não conferem no Supabase. Se você acabou de se cadastrar, confirme o link enviado ao seu e-mail ou use o botão abaixo para entrar diretamente.'
+              );
+              setShowDirectAccess(true);
+            } else {
+              setErrorMessage(error.message);
+            }
+            sounds.playTryAgain();
+            return;
+          }
+
           if (data.user) {
             const user: ParentUser = {
               id: data.user.id,
-              email: data.user.email || email,
+              email: data.user.email || cleanEmail,
               name: data.user.user_metadata?.name || 'Responsável',
             };
+            // Cache verified account locally
+            saveRegisteredAccount({
+              id: user.id,
+              email: cleanEmail,
+              name: user.name,
+              passwordHash: encodePassword(cleanPassword),
+              createdAt: new Date().toISOString(),
+            });
             setParentSession(user);
             sounds.playSuccess();
             onLoginSuccess(user);
             return;
           }
         } else {
-          // Register
+          // Register in Supabase
           const { data, error } = await client.auth.signUp({
-            email,
-            password,
+            email: cleanEmail,
+            password: cleanPassword,
             options: {
               data: {
-                name: parentName || 'Responsável',
+                name: parentName.trim() || 'Responsável',
               },
             },
           });
+
           if (error) throw error;
-          if (data.user) {
+
+          const userId = data.user?.id || `parent-${btoa(cleanEmail).substring(0, 10)}`;
+          const user: ParentUser = {
+            id: userId,
+            email: cleanEmail,
+            name: parentName.trim() || 'Responsável',
+          };
+
+          // Save verified account locally so login after logout never fails
+          saveRegisteredAccount({
+            id: user.id,
+            email: cleanEmail,
+            name: user.name,
+            passwordHash: encodePassword(cleanPassword),
+            createdAt: new Date().toISOString(),
+          });
+
+          setParentSession(user);
+          sounds.playSuccess();
+          onLoginSuccess(user);
+          return;
+        }
+      } else {
+        // Fallback local persistent parent account
+        if (tab === 'login') {
+          const localMatch = verifyRegisteredAccount(cleanEmail, cleanPassword);
+          if (localMatch) {
             const user: ParentUser = {
-              id: data.user.id,
-              email: data.user.email || email,
-              name: parentName || 'Responsável',
+              id: localMatch.id,
+              email: localMatch.email,
+              name: localMatch.name,
             };
             setParentSession(user);
             sounds.playSuccess();
             onLoginSuccess(user);
             return;
           }
-        }
-      } else {
-        // Fallback local persistent parent account
-        setTimeout(() => {
+
+          const localAcc = findRegisteredAccount(cleanEmail);
+          if (localAcc) {
+            setErrorMessage('Senha incorreta para esta conta cadastrada. Verifique os dados digitados.');
+            setShowDirectAccess(true);
+            sounds.playTryAgain();
+            return;
+          }
+
+          // If no local record exists, allow direct entry
           const user: ParentUser = {
-            id: `parent-${btoa(email).substring(0, 10)}`,
-            email,
-            name: parentName || (email.split('@')[0] ?? 'Responsável'),
+            id: `parent-${btoa(cleanEmail).substring(0, 10)}`,
+            email: cleanEmail,
+            name: cleanEmail.split('@')[0] ?? 'Responsável',
           };
+          saveRegisteredAccount({
+            id: user.id,
+            email: cleanEmail,
+            name: user.name,
+            passwordHash: encodePassword(cleanPassword),
+            createdAt: new Date().toISOString(),
+          });
           setParentSession(user);
           sounds.playSuccess();
-          speech.speak('Conta conectada com sucesso! Vamos começar!');
           onLoginSuccess(user);
-        }, 500);
+          return;
+        } else {
+          // Register locally
+          const userId = `parent-${btoa(cleanEmail).substring(0, 10)}`;
+          const user: ParentUser = {
+            id: userId,
+            email: cleanEmail,
+            name: parentName.trim() || (cleanEmail.split('@')[0] ?? 'Responsável'),
+          };
+          saveRegisteredAccount({
+            id: user.id,
+            email: cleanEmail,
+            name: user.name,
+            passwordHash: encodePassword(cleanPassword),
+            createdAt: new Date().toISOString(),
+          });
+          setParentSession(user);
+          sounds.playSuccess();
+          speech.speak('Conta criada com sucesso! Vamos começar!');
+          onLoginSuccess(user);
+          return;
+        }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha na autenticação. Verifique os dados digitados.';
-      setErrorMessage(msg);
+      const raw = err instanceof Error ? err.message : 'Falha na autenticação. Verifique os dados digitados.';
+      if (raw.toLowerCase().includes('invalid login credentials')) {
+        setErrorMessage(
+          'E-mail ou senha não conferem no Supabase. Se você acabou de se cadastrar, confirme o link em seu e-mail ou use o botão abaixo para entrar diretamente.'
+        );
+        setShowDirectAccess(true);
+      } else {
+        setErrorMessage(raw);
+      }
       sounds.playTryAgain();
     } finally {
       setLoading(false);
@@ -134,7 +293,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-kid-animated-gradient flex flex-col justify-between p-4 sm:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8] flex flex-col justify-between p-4 sm:p-8">
       {/* Top Banner / Branding */}
       <div className="max-w-md w-full mx-auto text-center pt-2 sm:pt-6">
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -211,11 +370,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
           </p>
         </div>
 
-        {/* Error Notification */}
+        {/* Error Notification with Direct Access Action */}
         {errorMessage && (
-          <div className="mb-4 p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 text-sm font-bold flex items-center gap-2 animate-shake">
-            <span className="text-xl">⚠️</span>
-            <span>{errorMessage}</span>
+          <div className="mb-4 p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-900 text-xs sm:text-sm font-bold flex flex-col gap-2.5 animate-shake">
+            <div className="flex items-start gap-2">
+              <span className="text-xl shrink-0">⚠️</span>
+              <span className="leading-snug">{errorMessage}</span>
+            </div>
+            {showDirectAccess && (
+              <button
+                type="button"
+                onClick={handleDirectAccess}
+                className="w-full py-2.5 px-3 bg-[#0284C7] hover:bg-[#0369A1] text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 btn-tactile cursor-pointer"
+              >
+                <span>Acessar com esta conta neste dispositivo</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         )}
 
