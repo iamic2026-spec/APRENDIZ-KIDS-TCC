@@ -1,41 +1,31 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Plus, User, Star, Camera, Check, ArrowRight, Trash2, Sparkles, Heart } from 'lucide-react';
+import { Plus, User, Star, Camera, Check, ArrowRight, Trash2, Sparkles, Image as ImageIcon, Smile, RefreshCw } from 'lucide-react';
 import { ChildProfile } from '../lib/types';
 import { getChildrenProfiles, createChildProfile, deleteChildProfile, setActiveChildId } from '../lib/storage';
 import { sounds } from '../lib/soundEffects';
 import { speech } from '../lib/speechService';
 import { MascotPipoca } from './MascotPipoca';
 import { AudioButton } from './AudioButton';
-import { AnimatedChildAvatar } from './AnimatedChildAvatar';
+import { ChildAvatarRenderer, ANIMATED_AVATAR_LIST } from './ChildAvatarRenderer';
 
 interface ProfileSelectScreenProps {
   onSelectChild: (child: ChildProfile) => void;
   onLogout: () => void;
 }
 
-const AVATAR_OPTIONS = [
-  { id: 'child_anim', icon: 'child_anim', label: 'Criança' },
-  { id: 'owl', icon: '🦉', label: 'Pipoca' },
-  { id: 'lion', icon: '🦁', label: 'Leãozinho' },
-  { id: 'bear', icon: '🐻', label: 'Ursinho' },
-  { id: 'dino', icon: '🦕', label: 'Dinossauro' },
-  { id: 'giraffe', icon: '🦒', label: 'Girafinha' },
-  { id: 'bunny', icon: '🐰', label: 'Coelhinho' },
-  { id: 'astro', icon: '🚀', label: 'Astronauta' },
-];
-
 export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
   onSelectChild,
   onLogout,
 }) => {
   const [children, setChildren] = useState<ChildProfile[]>(() => getChildrenProfiles());
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating, setIsCreating] = useState(() => children.length === 0);
   
   // New profile form state
   const [name, setName] = useState('');
   const [age, setAge] = useState<number>(6);
+  const [avatarMode, setAvatarMode] = useState<'animated' | 'upload'>('animated');
   const [selectedAvatar, setSelectedAvatar] = useState('child_anim');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -55,14 +45,15 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Por favor, selecione uma foto menor que 2MB.');
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Por favor, selecione uma foto menor que 3MB.');
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = () => {
       setPhotoPreview(reader.result as string);
+      setAvatarMode('upload');
       sounds.playSuccess();
     };
     reader.readAsDataURL(file);
@@ -73,42 +64,49 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
     if (!name.trim()) return;
 
     sounds.playSuccess();
+    const finalPhoto = avatarMode === 'upload' ? (photoPreview || undefined) : undefined;
+    const finalAvatar = selectedAvatar || 'child_anim';
+
     const newChild = createChildProfile(
       name,
       age,
-      selectedAvatar,
-      photoPreview || undefined
+      finalAvatar,
+      finalPhoto
     );
 
     setChildren(getChildrenProfiles());
     setIsCreating(false);
-    speech.speak(`Perfil de ${newChild.name} criado com sucesso! Vamos começar!`);
+    speech.speak(`Perfil de ${newChild.name} cadastrado com sucesso! Vamos começar!`);
     onSelectChild(newChild);
   };
 
   const handleDelete = (e: React.MouseEvent, id: string, childName: string) => {
     e.stopPropagation();
-    if (confirm(`Deseja remover o perfil de ${childName}?`)) {
+    if (confirm(`Deseja remover o perfil de ${childName || 'Aprendiz'}?`)) {
       sounds.playPop();
       deleteChildProfile(id);
-      setChildren(getChildrenProfiles());
+      const remaining = getChildrenProfiles();
+      setChildren(remaining);
+      if (remaining.length === 0) {
+        setIsCreating(true);
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8] p-4 sm:p-8 flex flex-col justify-between">
+    <div className="min-h-screen bg-kid-animated-gradient p-4 sm:p-8 flex flex-col justify-between">
       {/* Top Header */}
       <div className="max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-3xl">🦉</span>
-            <span className="text-2xl font-black text-[#0284C7]">Aprendiz Kids</span>
+            <span className="text-3xl animate-bounce">🦉</span>
+            <span className="text-2xl font-black text-[#0284C7] drop-shadow-sm">Aprendiz Kids</span>
           </div>
 
           <button
             type="button"
             onClick={onLogout}
-            className="px-4 py-2 text-sm font-extrabold text-slate-500 hover:text-slate-800 bg-white rounded-full border border-slate-200 btn-tactile"
+            className="px-4 py-2 text-sm font-extrabold text-slate-600 hover:text-slate-900 bg-white/90 rounded-full border border-slate-200 btn-tactile shadow-sm"
           >
             Trocar Responsável
           </button>
@@ -117,24 +115,32 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
         {/* Mascot & Title */}
         <div className="text-center my-4">
           <div className="flex justify-center mb-3">
-            <MascotPipoca size="md" mood="neutral" />
+            <MascotPipoca size="md" mood={isCreating ? 'encouraging' : 'neutral'} />
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-[#0F172A] tracking-tight">
-            {isCreating ? 'Novo Pequeno Aprendiz' : 'Quem vai aprender hoje?'}
-          </h1>
-          <p className="text-slate-600 font-bold text-base sm:text-lg mt-1">
             {isCreating
-              ? 'Personalize com nome, idade e uma linda foto!'
-              : 'Escolha seu perfil para continuar sua aventura nas letrinhas!'}
+              ? 'Cadastrar Perfil da Criança'
+              : children.length === 0
+              ? 'Bem-vindo ao Aprendiz Kids!'
+              : 'Quem vai aprender hoje?'}
+          </h1>
+          <p className="text-slate-700 font-bold text-base sm:text-lg mt-1 max-w-xl mx-auto">
+            {isCreating
+              ? 'Informe o nome, idade e escolha entre uma foto do seu aparelho ou um avatar animado!'
+              : children.length === 0
+              ? 'Nenhum perfil cadastrado ainda. Crie o perfil do seu pequeno para começar!'
+              : 'Selecione o perfil para abrir o mapa de fases e começar a brincadeira!'}
           </p>
 
           <div className="mt-3 flex justify-center">
             <AudioButton
               textToSpeak={
                 isCreating
-                  ? 'Digite o nome do seu pequeno ou pequena, escolha a idade e envie uma foto bem bonita!'
-                  : 'Toque na sua foto ou no seu nome para começar a brincar!'
+                  ? 'Digite o nome da criança, escolha a idade e decida entre enviar uma foto real ou escolher um avatar animado bem divertido!'
+                  : children.length === 0
+                  ? 'Cadastre o perfil da criança para abrir o mundo das letrinhas e dos números!'
+                  : 'Toque no perfil com a foto ou avatar da criança para começar!'
               }
               label="Ouvir Instruções"
               variant="secondary"
@@ -143,7 +149,7 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
         </div>
 
         {/* Content Area */}
-        {!isCreating ? (
+        {!isCreating && children.length > 0 ? (
           /* Profile Selector Grid */
           <div className="my-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-w-3xl mx-auto">
@@ -151,22 +157,20 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                 <div
                   key={child.id}
                   onClick={() => handleSelect(child)}
-                  className="bg-white rounded-3xl p-6 border-3 border-sky-100 hover:border-sky-400 shadow-md hover:shadow-xl transition-all cursor-pointer relative group btn-tactile text-center"
+                  className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 border-3 border-sky-200 hover:border-sky-500 shadow-md hover:shadow-2xl transition-all cursor-pointer relative group btn-tactile text-center"
                 >
                   {/* Delete button (for parents) */}
-                  {children.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleDelete(e, child.id, child.name)}
-                      className="absolute top-3 right-3 text-slate-300 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 transition-colors"
-                      title="Excluir perfil"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e, child.id, child.name)}
+                    className="absolute top-3 right-3 text-slate-300 hover:text-rose-500 p-1.5 rounded-full hover:bg-rose-50 transition-colors"
+                    title="Excluir perfil"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
 
-                  {/* Photo or Avatar */}
-                  <div className="w-24 h-24 mx-auto rounded-full overflow-hidden bg-sky-100 border-4 border-sky-300 shadow-inner flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                  {/* Photo or Animated Avatar */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden bg-gradient-to-tr from-sky-100 to-amber-100 border-4 border-sky-300 shadow-inner flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                     {child.photoUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -174,14 +178,12 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                         alt={child.name || 'Aprendiz'}
                         className="w-full h-full object-cover"
                       />
-                    ) : child.avatar === 'child_anim' ? (
-                      <AnimatedChildAvatar size="lg" />
                     ) : (
-                      <span className="text-5xl select-none">{child.avatar}</span>
+                      <ChildAvatarRenderer avatarId={child.avatar} size="lg" />
                     )}
                   </div>
 
-                  {/* Name & Age */}
+                  {/* Nome da Criança em Destaque */}
                   <h3 className="text-2xl font-black text-slate-800 tracking-tight">
                     {child.name || 'Pequeno Aprendiz'}
                   </h3>
@@ -190,14 +192,14 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                   </p>
 
                   {/* Stars Pill */}
-                  <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-50 border-2 border-amber-300 rounded-full text-amber-800 font-black text-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                  <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-50 border-2 border-amber-300 rounded-full text-amber-800 font-black text-sm shadow-sm">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-500 animate-wiggle" />
                     <span>{child.stars} estrelas</span>
                   </div>
 
                   {/* Action prompt */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-sky-600 font-extrabold text-sm group-hover:text-sky-700">
-                    <span>Jogar agora</span>
+                    <span>Entrar na aventura</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -209,100 +211,203 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                   sounds.playPop();
                   setIsCreating(true);
                 }}
-                className="bg-sky-50/70 hover:bg-sky-50 border-3 border-dashed border-sky-300 hover:border-sky-500 rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer min-h-[220px] transition-all btn-tactile"
+                className="bg-white/80 hover:bg-white border-3 border-dashed border-sky-300 hover:border-sky-500 rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer min-h-[240px] transition-all btn-tactile shadow-sm hover:shadow-lg"
               >
-                <div className="w-16 h-16 rounded-full bg-white border-2 border-sky-300 text-sky-600 flex items-center justify-center mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full bg-sky-100 border-2 border-sky-300 text-sky-600 flex items-center justify-center mb-3 shadow-inner">
                   <Plus className="w-8 h-8" />
                 </div>
                 <h4 className="text-xl font-black text-sky-800">Novo Perfil</h4>
                 <p className="text-xs font-bold text-sky-600 mt-1 max-w-[180px]">
-                  Adicionar outra criança da família
+                  Cadastrar outra criança na família
                 </p>
               </div>
             </div>
           </div>
         ) : (
-          /* Create Profile Form */
-          <div className="max-w-lg mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-xl border-3 border-sky-100 my-4">
-            <form onSubmit={handleCreateSubmit} className="space-y-5">
-              {/* Photo Upload Area */}
-              <div className="text-center">
-                <label className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-2">
-                  Foto da Criança (Opcional)
-                </label>
-                
-                <div className="relative inline-block">
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-28 h-28 mx-auto rounded-full overflow-hidden bg-sky-100 border-4 border-sky-300 hover:border-sky-500 shadow-inner flex items-center justify-center cursor-pointer group transition-all"
+          /* Enhanced Create Profile Form (Upload vs Animated Avatars) */
+          <div className="max-w-xl mx-auto bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-sky-200 my-4">
+            <form onSubmit={handleCreateSubmit} className="space-y-6">
+              
+              {/* STEP 1: Two Clear Options for Child Picture/Avatar */}
+              <div>
+                <span className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-2.5 text-center">
+                  Escolha como será a imagem do perfil:
+                </span>
+
+                <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-2xl border-2 border-slate-200 mb-5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playPop();
+                      setAvatarMode('animated');
+                    }}
+                    className={`py-3 px-2 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer btn-tactile ${
+                      avatarMode === 'animated'
+                        ? 'bg-[#0284C7] text-white shadow-md border-b-3 border-[#0369A1]'
+                        : 'text-slate-600 hover:text-sky-700'
+                    }`}
                   >
-                    {photoPreview ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={photoPreview}
-                        alt="Prévia"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center text-sky-600">
-                        {selectedAvatar === 'child_anim' ? (
-                          <AnimatedChildAvatar size="md" />
-                        ) : (
-                          <span className="text-4xl">{selectedAvatar}</span>
-                        )}
-                        <span className="text-[10px] font-black uppercase mt-1 bg-white/80 px-2 py-0.5 rounded-full">
-                          Mudar foto
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    <Smile className="w-5 h-5" />
+                    <span>Avatar Animado</span>
+                  </button>
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2.5 bg-[#0284C7] hover:bg-[#0369A1] text-white rounded-full shadow-lg border-2 border-white btn-tactile cursor-pointer"
-                    title="Carregar foto do computador ou celular"
+                    onClick={() => {
+                      sounds.playPop();
+                      setAvatarMode('upload');
+                    }}
+                    className={`py-3 px-2 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer btn-tactile ${
+                      avatarMode === 'upload'
+                        ? 'bg-[#0284C7] text-white shadow-md border-b-3 border-[#0369A1]'
+                        : 'text-slate-600 hover:text-sky-700'
+                    }`}
                   >
-                    <Camera className="w-4 h-4" />
+                    <Camera className="w-5 h-5" />
+                    <span>Upload de Foto</span>
                   </button>
                 </div>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
+                {/* OPTION A: UPLOAD PHOTO FROM DEVICE */}
+                {avatarMode === 'upload' ? (
+                  <div className="bg-sky-50/70 rounded-3xl p-5 border-2 border-sky-200 text-center">
+                    <div className="relative inline-block mb-3">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-28 h-28 sm:w-32 sm:h-32 mx-auto rounded-full overflow-hidden bg-white border-4 border-sky-300 hover:border-sky-500 shadow-lg flex items-center justify-center cursor-pointer group transition-all"
+                      >
+                        {photoPreview ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={photoPreview}
+                            alt="Prévia"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center text-sky-600 p-2">
+                            <Camera className="w-10 h-10 mb-1 group-hover:scale-110 transition-transform" />
+                            <span className="text-[11px] font-black uppercase text-center leading-tight">
+                              Toque para escolher foto
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-                {photoPreview && (
-                  <button
-                    type="button"
-                    onClick={() => setPhotoPreview(null)}
-                    className="block mx-auto mt-2 text-xs text-rose-500 font-bold hover:underline"
-                  >
-                    Remover foto enviada
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-1 right-1 p-2.5 bg-[#0284C7] hover:bg-[#0369A1] text-white rounded-full shadow-lg border-2 border-white btn-tactile cursor-pointer"
+                        title="Carregar foto do aparelho"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+
+                    <div className="flex flex-col items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-white border-2 border-sky-300 hover:border-sky-500 text-sky-700 rounded-full font-black text-xs sm:text-sm btn-tactile shadow-sm"
+                      >
+                        {photoPreview ? 'Trocar Foto Escolhida' : 'Escolher Foto do Aparelho (JPG/PNG)'}
+                      </button>
+
+                      {photoPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setPhotoPreview(null)}
+                          className="text-xs text-rose-500 font-bold hover:underline"
+                        >
+                          Remover foto e voltar ao avatar padrão
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* OPTION B: CHOOSE FROM FUN ANIMATED AVATARS */
+                  <div className="bg-amber-50/60 rounded-3xl p-4 sm:p-5 border-2 border-amber-200">
+                    {/* Live Big Preview of Selected Avatar */}
+                    <div className="flex items-center justify-center gap-4 mb-4 pb-3 border-b border-amber-200/80">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white border-4 border-amber-400 shadow-md flex items-center justify-center">
+                        <ChildAvatarRenderer avatarId={selectedAvatar} size="lg" />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
+                          Avatar Selecionado
+                        </span>
+                        <h4 className="text-lg sm:text-xl font-black text-slate-800 mt-1">
+                          {ANIMATED_AVATAR_LIST.find((a) => a.id === selectedAvatar)?.name || 'Mascote Amigo'}
+                        </h4>
+                        <span className="text-xs font-bold text-slate-500">
+                          Com olhinhos e expressões animadas!
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Grid of Animated Avatars */}
+                    <div className="grid grid-cols-4 gap-2.5">
+                      {ANIMATED_AVATAR_LIST.map((opt) => {
+                        const isSelected = selectedAvatar === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              sounds.playPop();
+                              setSelectedAvatar(opt.id);
+                              setPhotoPreview(null);
+                            }}
+                            className={`p-2 rounded-2xl flex flex-col items-center transition-all btn-tactile cursor-pointer relative ${
+                              isSelected
+                                ? 'bg-white border-3 border-amber-500 shadow-lg ring-3 ring-amber-300 scale-105'
+                                : 'bg-white/80 border-2 border-amber-200 hover:border-amber-400'
+                            }`}
+                          >
+                            <ChildAvatarRenderer avatarId={opt.id} size="sm" />
+                            <span className="text-[11px] font-black text-slate-800 mt-1 text-center line-clamp-1">
+                              {opt.name}
+                            </span>
+                            {isSelected && (
+                              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-sm">
+                                <Check className="w-3.5 h-3.5" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* Name */}
+              {/* STEP 2: Child's Name */}
               <div>
                 <label className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-1.5">
-                  Nome da Criança
+                  Nome da Criança <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Sofia, Lucas, Pedro..."
-                  className="w-full px-5 py-3.5 rounded-2xl border-2 border-slate-200 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-100 font-black text-xl text-slate-800 outline-none"
-                  required
-                  autoFocus
-                />
+                <div className="relative">
+                  <User className="w-6 h-6 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Sofia, Lucas, Pedro, Mariana..."
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-300 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-100 font-black text-xl text-slate-800 outline-none"
+                    required
+                    autoFocus
+                  />
+                </div>
               </div>
 
-              {/* Age Selection */}
+              {/* STEP 3: Age Selection */}
               <div>
                 <label className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-2">
                   Idade da Criança
@@ -328,56 +433,23 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
                 </div>
               </div>
 
-              {/* Avatar Preset Selection if no custom photo */}
-              {!photoPreview && (
-                <div>
-                  <label className="block text-xs uppercase tracking-wider font-extrabold text-slate-600 mb-2">
-                    Ou escolha um mascote amigo
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {AVATAR_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => {
-                          sounds.playPop();
-                          setSelectedAvatar(opt.icon);
-                        }}
-                        className={`p-2.5 rounded-2xl flex flex-col items-center border-2 transition-all btn-tactile cursor-pointer ${
-                          selectedAvatar === opt.icon
-                            ? 'bg-sky-100 border-[#0284C7] ring-2 ring-sky-300'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {opt.icon === 'child_anim' ? (
-                          <AnimatedChildAvatar size="sm" />
-                        ) : (
-                          <span className="text-3xl">{opt.icon}</span>
-                        )}
-                        <span className="text-[11px] font-extrabold text-slate-600 mt-1">
-                          {opt.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(false)}
-                  className="flex-1 min-h-[56px] rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-base border-b-3 border-slate-300 btn-tactile cursor-pointer"
-                >
-                  Voltar
-                </button>
+              <div className="flex items-center gap-3 pt-2">
+                {children.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreating(false)}
+                    className="flex-1 min-h-[56px] rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-base border-b-3 border-slate-300 btn-tactile cursor-pointer"
+                  >
+                    Voltar
+                  </button>
+                )}
                 <button
                   type="submit"
-                  className="flex-2 min-h-[60px] rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-xl border-b-5 border-[#15803D] active:border-b-0 btn-tactile shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-2 min-h-[62px] rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-xl border-b-5 border-[#15803D] active:border-b-0 btn-tactile shadow-xl flex items-center justify-center gap-2.5 cursor-pointer"
                 >
                   <Check className="w-6 h-6" />
-                  <span>Salvar Perfil</span>
+                  <span>Cadastrar e Começar!</span>
                 </button>
               </div>
             </form>
@@ -385,8 +457,8 @@ export const ProfileSelectScreen: React.FC<ProfileSelectScreenProps> = ({
         )}
       </div>
 
-      <div className="text-center text-xs text-slate-400 font-medium py-2">
-        Aprendiz Kids • Alfabetização Divertida
+      <div className="text-center text-xs text-slate-500 font-bold py-2">
+        Aprendiz Kids • Alfabetização Lúdica e Divertida
       </div>
     </div>
   );

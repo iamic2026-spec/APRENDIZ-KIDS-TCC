@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="pt-BR" className={`${nunito.variable} ${quicksand.variable}`}>
-      <body className="font-sans bg-[#FAF8FF] text-[#131B2E] min-h-screen antialiased select-none" suppressHydrationWarning>
+      <body className="font-sans bg-kid-animated-gradient text-[#131B2E] min-h-screen antialiased select-none" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -5,7 +5,7 @@ import { Star, Trophy, Volume2, VolumeX, Users, Shield, LogOut } from 'lucide-re
 import { ChildProfile } from '../lib/types';
 import { sounds } from '../lib/soundEffects';
 
-import { AnimatedChildAvatar } from './AnimatedChildAvatar';
+import { ChildAvatarRenderer } from './ChildAvatarRenderer';
 
 interface HeaderProps {
   child: ChildProfile;
@@ -49,17 +49,17 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b-2 border-sky-100 shadow-sm px-3 sm:px-6 py-2 sm:py-3 transition-all">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b-2 border-sky-200/80 shadow-md px-3 sm:px-6 py-2 sm:py-3 transition-all">
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-        {/* Child Profile Display & Switch */}
+        {/* Child Profile Display & Switch (Nome em Destaque ao lado do Avatar) */}
         <button
           type="button"
           onClick={onChangeProfile}
-          className="flex items-center gap-2.5 sm:gap-3 p-1.5 sm:p-2 pr-3 sm:pr-4 rounded-full bg-[#F0F9FF] border-2 border-sky-200 hover:border-sky-400 btn-tactile cursor-pointer"
-          title="Trocar perfil da criança"
+          className="flex items-center gap-2 sm:gap-3 p-1 sm:p-1.5 pr-3 sm:pr-4 rounded-full bg-gradient-to-r from-sky-50 to-amber-50/60 border-2 border-sky-300 hover:border-sky-500 shadow-sm hover:shadow-md btn-tactile cursor-pointer group"
+          title="Clique para trocar o perfil"
         >
           {/* Avatar / Photo */}
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-sky-200 flex items-center justify-center border-2 border-white shadow-inner shrink-0">
+          <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full overflow-hidden bg-sky-100 flex items-center justify-center border-2 border-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
             {child.photoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -67,29 +67,22 @@ export const Header: React.FC<HeaderProps> = ({
                 alt={child.name || 'Aprendiz'}
                 className="w-full h-full object-cover"
               />
-            ) : child.avatar === 'child_anim' ? (
-              <AnimatedChildAvatar size="sm" />
             ) : (
-              <span className="text-2xl sm:text-3xl select-none">{child.avatar}</span>
+              <ChildAvatarRenderer avatarId={child.avatar} size="sm" />
             )}
           </div>
 
-          <div className="text-left hidden xs:block">
-            <span className="text-xs uppercase tracking-wider font-extrabold text-sky-600 block leading-tight">
+          {/* Nome da Criança em Destaque (Visível em Celulares e Computadores) */}
+          <div className="text-left flex flex-col justify-center">
+            <span className="text-[10px] sm:text-xs uppercase tracking-wider font-extrabold text-sky-600 leading-tight">
               Aprendiz
             </span>
-            {child.name ? (
-              <span className="text-base sm:text-lg font-black text-slate-800 leading-tight block">
-                {child.name}
-              </span>
-            ) : (
-              <span className="text-xs sm:text-sm font-extrabold text-slate-600 leading-tight block">
-                Sem nome
-              </span>
-            )}
+            <span className="text-base sm:text-xl font-black text-slate-800 leading-tight truncate max-w-[110px] xs:max-w-[160px] sm:max-w-[220px]">
+              {child.name || 'Pequeno Aprendiz'}
+            </span>
           </div>
 
-          <Users className="w-4 h-4 text-sky-500 shrink-0 ml-0.5" />
+          <Users className="w-4 h-4 text-sky-500 shrink-0 ml-0.5 group-hover:text-sky-700 transition-colors" />
         </button>
 
         {/* Center: Stars & Level Indicators */}

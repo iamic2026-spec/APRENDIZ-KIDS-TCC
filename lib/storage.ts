@@ -4,46 +4,48 @@ import { supabaseRepo } from './supabase';
 const PARENT_SESSION_KEY = 'aprendiz_kids_parent_session';
 const CHILDREN_KEY = 'aprendiz_kids_children_profiles';
 const ACTIVE_CHILD_KEY = 'aprendiz_kids_active_child_id';
+const RESET_VERSION_KEY = 'aprendiz_kids_clean_slate_v5';
 
-// Default initial profiles if first time
-const DEFAULT_CHILDREN: ChildProfile[] = [
-  {
-    id: 'child-demo',
-    name: '', // Sem nome na demonstração
-    age: 6,
-    avatar: 'child_anim', // Rosto padrão de criança de animação
-    stars: 8,
-    level: 1,
-    unlockedLevels: [1],
-    totalCorrect: 8,
-    completedActivities: ['l1-act1', 'l1-act2'],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'child-sofia',
-    name: 'Sofia',
-    age: 6,
-    avatar: '🦉', // Pipoca
-    stars: 8,
-    level: 1,
-    unlockedLevels: [1],
-    totalCorrect: 8,
-    completedActivities: ['l1-act1', 'l1-act2'],
-    createdAt: new Date().toISOString(),
-  },
-];
+// Default initial state: totally clean and empty!
+const DEFAULT_CHILDREN: ChildProfile[] = [];
+
+// Automatic one-time clean slate wipe of all previous test accounts
+const ensureCleanSlateOnce = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const isCleaned = localStorage.getItem(RESET_VERSION_KEY);
+    if (!isCleaned) {
+      localStorage.removeItem(PARENT_SESSION_KEY);
+      localStorage.removeItem(CHILDREN_KEY);
+      localStorage.removeItem(ACTIVE_CHILD_KEY);
+      localStorage.setItem(RESET_VERSION_KEY, 'done');
+    }
+  } catch {
+    // Ignore storage restrictions
+  }
+};
+
+// Run clean slate check immediately on module load
+ensureCleanSlateOnce();
+
+export const clearAllAppData = (): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(PARENT_SESSION_KEY);
+  localStorage.removeItem(CHILDREN_KEY);
+  localStorage.removeItem(ACTIVE_CHILD_KEY);
+};
 
 export const setupDemoChild = (): ChildProfile => {
   const demoChild: ChildProfile = {
-    id: 'child-demo',
-    name: '', // Sem nome
+    id: `child-demo-${Date.now()}`,
+    name: '', // Sem nome conforme pedido
     age: 6,
-    avatar: 'child_anim', // Rosto de criança de animação
-    stars: 8,
+    avatar: 'child_anim', // Rosto padrão de criança de animação
+    stars: 0,
     level: 1,
     unlockedLevels: [1],
-    totalCorrect: 8,
-    completedActivities: ['l1-act1', 'l1-act2'],
+    totalCorrect: 0,
+    completedActivities: [],
     createdAt: new Date().toISOString(),
   };
 

@@ -138,7 +138,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8] flex flex-col justify-between p-3 sm:p-6 select-none">
+    <div className="min-h-screen bg-kid-animated-gradient flex flex-col justify-between p-3 sm:p-6 select-none">
       {/* Top Bar Navigation */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between gap-3 bg-white/90 backdrop-blur rounded-full px-4 sm:px-6 py-2.5 shadow-sm border-2 border-sky-100">
         <button

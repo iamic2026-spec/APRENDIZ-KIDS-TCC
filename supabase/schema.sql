@@ -27,7 +27,7 @@ USING (auth.uid() = id);
 CREATE TABLE IF NOT EXISTS public.children (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
+  name TEXT DEFAULT '' NOT NULL,
   age INTEGER NOT NULL CHECK (age >= 4 AND age <= 12),
   avatar TEXT NOT NULL DEFAULT 'owl',
   photo_url TEXT,

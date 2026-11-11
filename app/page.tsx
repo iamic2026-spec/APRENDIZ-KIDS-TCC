@@ -33,7 +33,7 @@ export default function HomePage() {
   // Prevent SSR hydration mismatch when reading localStorage
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-kid-animated-gradient flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="w-20 h-20 rounded-full bg-sky-100 border-4 border-sky-300 flex items-center justify-center text-4xl shadow-md animate-bounce">
             🦉
@@ -99,7 +99,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8]">
+    <div className="min-h-screen flex flex-col bg-kid-animated-gradient">
       {/* Top Header */}
       <Header
         child={activeChild}

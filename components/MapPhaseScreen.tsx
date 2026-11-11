@@ -9,7 +9,7 @@ import { speech } from '../lib/speechService';
 import { MascotPipoca } from './MascotPipoca';
 import { AudioButton } from './AudioButton';
 
-import { AnimatedChildAvatar } from './AnimatedChildAvatar';
+import { ChildAvatarRenderer } from './ChildAvatarRenderer';
 
 interface MapPhaseScreenProps {
   child: ChildProfile;
@@ -101,10 +101,8 @@ export const MapPhaseScreen: React.FC<MapPhaseScreenProps> = ({
               {child.photoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={child.photoUrl} alt={child.name || 'Aprendiz'} className="w-full h-full object-cover" />
-              ) : child.avatar === 'child_anim' ? (
-                <AnimatedChildAvatar size="md" />
               ) : (
-                <span className="text-3xl select-none">{child.avatar}</span>
+                <ChildAvatarRenderer avatarId={child.avatar} size="md" />
               )}
             </div>
             <div>

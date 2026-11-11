@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Shield, Database, Check, Copy, X, Key, ExternalLink, RefreshCw, Unlock, Users, Star } from 'lucide-react';
+import { Shield, Database, Check, Copy, X, Key, ExternalLink, RefreshCw, Unlock, Users, Star, Trash2 } from 'lucide-react';
 import { ChildProfile, ParentUser } from '../lib/types';
 import { supabaseRepo, isSupabaseConfigured } from '../lib/supabase';
-import { getChildrenProfiles, saveChildrenProfiles } from '../lib/storage';
+import { getChildrenProfiles, saveChildrenProfiles, clearAllAppData } from '../lib/storage';
 import { sounds } from '../lib/soundEffects';
-import { AnimatedChildAvatar } from './AnimatedChildAvatar';
+import { ChildAvatarRenderer } from './ChildAvatarRenderer';
 
 interface ParentDashboardModalProps {
   isOpen: boolean;
@@ -74,35 +74,122 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
     }
   };
 
+  const handleResetAllData = () => {
+    if (confirm('Tem certeza de que deseja apagar e zerar todos os perfis, cadastros e progresso? O app iniciará limpo do zero.')) {
+      clearAllAppData();
+      sounds.playPop();
+      alert('Todos os dados locais foram apagados com sucesso! A página será reiniciada.');
+      window.location.reload();
+    }
+  };
+
   const handleCopySql = () => {
     sounds.playPop();
-    const sqlText = `-- APRENDIZ KIDS - SUPABASE TABLES
+    const sqlText = `-- ==============================================================================
+-- APRENDIZ KIDS - SUPABASE DATABASE SCHEMA
+-- Execute este script no SQL Editor do seu projeto Supabase (https://app.supabase.com)
+-- ==============================================================================
+
+-- 1. TABELA DE PERFIS DE PAIS / RESPONSÁVEIS
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   name TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Pais podem visualizar seus próprios perfis" 
+ON public.profiles FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Pais podem atualizar seus próprios perfis" 
+ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- 2. TABELA DE CRIANÇAS CADASTRADAS PELO RESPONSÁVEL
 CREATE TABLE IF NOT EXISTS public.children (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
-  age INTEGER NOT NULL,
-  avatar TEXT NOT NULL DEFAULT 'owl',
+  name TEXT DEFAULT '' NOT NULL,
+  age INTEGER NOT NULL CHECK (age >= 4 AND age <= 12),
+  avatar TEXT NOT NULL DEFAULT 'child_anim',
   photo_url TEXT,
   stars INTEGER DEFAULT 0 NOT NULL,
   current_level INTEGER DEFAULT 1 NOT NULL,
-  total_correct INTEGER DEFAULT 0 NOT NULL
+  total_correct INTEGER DEFAULT 0 NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+ALTER TABLE public.children ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Pais podem gerenciar suas crianças" 
+ON public.children FOR ALL USING (auth.uid() = parent_id);
+
+-- 3. TABELA DE PROGRESSO NOS NÍVEIS
 CREATE TABLE IF NOT EXISTS public.level_progress (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   child_id UUID REFERENCES public.children(id) ON DELETE CASCADE NOT NULL,
-  level_id INTEGER NOT NULL,
+  level_id INTEGER NOT NULL CHECK (level_id >= 1 AND level_id <= 10),
   completed BOOLEAN DEFAULT false NOT NULL,
-  stars_earned INTEGER DEFAULT 0 NOT NULL
-);`;
+  stars_earned INTEGER DEFAULT 0 NOT NULL,
+  best_score INTEGER DEFAULT 0 NOT NULL,
+  unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(child_id, level_id)
+);
+
+ALTER TABLE public.level_progress ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Pais podem ler e atualizar progresso dos filhos" 
+ON public.level_progress FOR ALL 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.children 
+    WHERE children.id = level_progress.child_id 
+    AND children.parent_id = auth.uid()
+  )
+);
+
+-- 4. TABELA DE HISTÓRICO DE ATIVIDADES
+CREATE TABLE IF NOT EXISTS public.activity_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  child_id UUID REFERENCES public.children(id) ON DELETE CASCADE NOT NULL,
+  level_id INTEGER NOT NULL,
+  activity_id TEXT NOT NULL,
+  activity_type TEXT NOT NULL,
+  is_correct BOOLEAN NOT NULL,
+  attempt_count INTEGER DEFAULT 1,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.activity_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Pais podem ver histórico de atividades dos filhos" 
+ON public.activity_history FOR ALL 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.children 
+    WHERE children.id = activity_history.child_id 
+    AND children.parent_id = auth.uid()
+  )
+);
+
+-- 5. TRIGGER AUTOMÁTICO PARA NOVO USUÁRIO AUTH -> PROFILE
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name)
+  VALUES (new.id, new.email, new.raw_user_meta_data->>'name');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();`;
 
     navigator.clipboard.writeText(sqlText);
     setCopiedSql(true);
@@ -216,60 +303,79 @@ CREATE TABLE IF NOT EXISTS public.level_progress (
             {/* Tab: Children Progress */}
             {activeTab === 'progress' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-sm font-black text-slate-700 uppercase tracking-wide">
                     Relatório dos Aprendizes
                   </h4>
-                  <button
-                    type="button"
-                    onClick={handleUnlockAllLevels}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-xs border border-emerald-300 btn-tactile"
-                    title="Desbloquear todas as fases para teste"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>Desbloquear Todas as Fases</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUnlockAllLevels}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold text-xs border border-emerald-300 btn-tactile cursor-pointer"
+                      title="Desbloquear todas as fases para teste"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>Desbloquear Fases</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetAllData}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-800 font-extrabold text-xs border border-rose-300 btn-tactile cursor-pointer"
+                      title="Zerar todos os cadastros e dados"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Zerar Dados</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {children.map((child) => (
-                    <div
-                      key={child.id}
-                      className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/70 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-sky-200 flex items-center justify-center text-2xl border-2 border-white shadow-inner">
-                          {child.photoUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={child.photoUrl} alt={child.name || 'Aprendiz'} className="w-full h-full object-cover" />
-                          ) : child.avatar === 'child_anim' ? (
-                            <AnimatedChildAvatar size="sm" />
-                          ) : (
-                            child.avatar
-                          )}
+                {children.length === 0 ? (
+                  <div className="p-6 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-center">
+                    <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-black text-slate-700">Nenhum perfil de criança cadastrado</p>
+                    <p className="text-xs text-slate-500 font-bold mt-1">
+                      Cadastre um novo perfil com foto ou avatar animado na tela de perfis!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {children.map((child) => (
+                      <div
+                        key={child.id}
+                        className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/70 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden bg-sky-200 flex items-center justify-center border-2 border-white shadow-inner shrink-0">
+                            {child.photoUrl ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={child.photoUrl} alt={child.name || 'Aprendiz'} className="w-full h-full object-cover" />
+                            ) : (
+                              <ChildAvatarRenderer avatarId={child.avatar} size="xs" />
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="text-base font-black text-slate-800">
+                              {child.name || 'Pequeno Aprendiz (Demonstração)'}
+                            </h5>
+                            <span className="text-xs font-bold text-slate-500">
+                              {child.age} anos • Fase {child.level} de 5
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <h5 className="text-base font-black text-slate-800">
-                            {child.name || 'Pequeno Aprendiz (Demonstração)'}
-                          </h5>
+
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 text-amber-700 font-black text-sm">
+                            <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                            <span>{child.stars} estrelas</span>
+                          </div>
                           <span className="text-xs font-bold text-slate-500">
-                            {child.age} anos • Fase {child.level} de 5
+                            {child.totalCorrect} acertos totais
                           </span>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-amber-700 font-black text-sm">
-                          <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
-                          <span>{child.stars} estrelas</span>
-                        </div>
-                        <span className="text-xs font-bold text-slate-500">
-                          {child.totalCorrect} acertos totais
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

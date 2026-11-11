@@ -134,7 +134,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F0F9FF] via-[#FAF8FF] to-[#FEFCE8] flex flex-col justify-between p-4 sm:p-8">
+    <div className="min-h-screen bg-kid-animated-gradient flex flex-col justify-between p-4 sm:p-8">
       {/* Top Banner / Branding */}
       <div className="max-w-md w-full mx-auto text-center pt-2 sm:pt-6">
         <div className="flex items-center justify-center gap-2 mb-2">
